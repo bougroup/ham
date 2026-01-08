@@ -10,6 +10,7 @@ import (
 )
 
 type Layout struct {
+	ID     string   `json:"id"`
 	Src    string   `json:"layout"`
 	Path   string   `json:"path"`
 	CSS    []string `json:"css,omitempty"`
