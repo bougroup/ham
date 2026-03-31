@@ -28,6 +28,9 @@ func New(workingDir, outputDir string) (*Compiler, error) {
 }
 
 func (c *Compiler) Compile() error {
+	// clear read cache so rebuilds pick up changes
+	readCache = nil
+
 	// create output directory
 	if err := os.MkdirAll(c.outputDir, 0744); err != nil {
 		return err

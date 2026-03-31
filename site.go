@@ -190,6 +190,7 @@ func (h *Site) Help() string {
 The following are supported HAM commands:
   init		Creates a new HAM site
   build		Compiles HAM site into html website
+  serve		Starts dev server with hot reload
   version	Displays version of HAM that you are running
 `
 }

@@ -11,6 +11,7 @@ import (
 	"github.com/fobilow/detach"
 	"github.com/fobilow/ham"
 	"github.com/fobilow/ham/proxy"
+	"github.com/fobilow/ham/serve"
 )
 
 var Version string
@@ -25,8 +26,12 @@ func main() {
 	h := ham.NewSite()
 	newCmd := newFlagSet(h, "init")
 	buildCmd := newFlagSet(h, "build")
+	serveCmd := newFlagSet(h, "serve")
 
 	bwd := buildCmd.String("w", "./", "working directory")
+
+	swd := serveCmd.String("w", "./", "working directory")
+	sport := serveCmd.String("p", "4120", "port")
 
 	command := ""
 	if len(os.Args) > 1 {
@@ -56,6 +61,9 @@ func main() {
 			return
 		}
 		checkError(h.Build(getWorkingDir(*bwd), ham.DefaultOutputDir))
+	case "serve":
+		checkError(serveCmd.Parse(os.Args[2:]))
+		serve.Run(getWorkingDir(*swd), *sport)
 	case "proxy":
 		proxy.Run()
 	case "version":
