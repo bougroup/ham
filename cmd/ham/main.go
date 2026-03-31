@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"strings"
 
 	"github.com/fobilow/detach"
 	"github.com/fobilow/ham"
@@ -19,20 +18,18 @@ var Version string
 var validSiteName = regexp.MustCompile(`\W+`)
 
 func main() {
-	// attach -d flag to default CommandLine flag set
 	cleanup := detach.Setup("d", nil)
 	defer cleanup()
 
-	h := ham.NewSite()
-	newCmd := newFlagSet(h, "init")
-	buildCmd := newFlagSet(h, "build")
-	serveCmd := newFlagSet(h, "serve")
+	site := ham.NewSite()
 
-	bwd := buildCmd.String("w", "./", "working directory")
-	bod := buildCmd.String("o", ham.DefaultOutputDir, "output directory")
+	buildFlags := newFlagSet(site, "build")
+	buildWorkDir := buildFlags.String("w", "./", "working directory")
+	buildOutputDir := buildFlags.String("o", ham.DefaultOutputDir, "output directory")
 
-	swd := serveCmd.String("w", "./", "working directory")
-	sport := serveCmd.String("p", "4120", "port")
+	serveFlags := newFlagSet(site, "serve")
+	serveWorkDir := serveFlags.String("w", "./", "working directory")
+	servePort := serveFlags.String("p", "4120", "port")
 
 	command := ""
 	if len(os.Args) > 1 {
@@ -41,59 +38,61 @@ func main() {
 
 	switch command {
 	case "init":
+		if len(os.Args) < 3 || len(os.Args[2]) == 0 {
+			exitWithUsage(site, "please provide a name for your site")
+		}
 		name := os.Args[2]
-		if len(name) == 0 {
-			fmt.Println("please provide a name for your site")
-			newCmd.Usage()
-			return
-		}
 		if validSiteName.MatchString(name) {
-			fmt.Println(name)
-			fmt.Println("invalid project name. project name can only contains letters, digits or underscore")
-			newCmd.Usage()
-			return
+			exitWithUsage(site, "invalid project name: project name can only contain letters, digits or underscore")
 		}
-		checkError(h.NewProject(name, getWorkingDir("./")))
+		exitOnError(site.NewProject(name, resolveDir("./")))
+
 	case "build":
-		checkError(buildCmd.Parse(os.Args[2:]))
-		if len(*bwd) == 0 {
-			fmt.Println("please provide a working directory")
-			buildCmd.Usage()
-			return
+		exitOnError(buildFlags.Parse(os.Args[2:]))
+		if len(*buildWorkDir) == 0 {
+			exitWithUsage(site, "please provide a working directory")
 		}
-		checkError(h.Build(getWorkingDir(*bwd), *bod))
+		exitOnError(site.Build(resolveDir(*buildWorkDir), *buildOutputDir))
+
 	case "serve":
-		checkError(serveCmd.Parse(os.Args[2:]))
-		serve.Run(getWorkingDir(*swd), *sport)
+		exitOnError(serveFlags.Parse(os.Args[2:]))
+		serve.Run(resolveDir(*serveWorkDir), *servePort)
+
 	case "proxy":
 		proxy.Run()
+
 	case "version":
 		fmt.Println("Version: " + Version)
+
 	default:
-		fmt.Println(h.Help())
+		fmt.Println(site.Help())
 	}
 }
 
-func checkError(err error) {
+func exitOnError(err error) {
 	if err != nil {
-		fmt.Println(err.Error())
+		fmt.Fprintln(os.Stderr, err.Error())
 		os.Exit(1)
 	}
 }
 
-func getWorkingDir(wd string) string {
-	defaultWorkingDir, err := os.Getwd()
-	checkError(err)
-
-	workingDir := wd
-	if !strings.HasPrefix(wd, "/") {
-		workingDir = filepath.Join(defaultWorkingDir, wd)
-	}
-	return workingDir
+func exitWithUsage(site *ham.Site, msg string) {
+	fmt.Fprintln(os.Stderr, msg)
+	fmt.Println(site.Help())
+	os.Exit(1)
 }
 
-func newFlagSet(s *ham.Site, name string) *flag.FlagSet {
+func resolveDir(dir string) string {
+	if filepath.IsAbs(dir) {
+		return dir
+	}
+	cwd, err := os.Getwd()
+	exitOnError(err)
+	return filepath.Join(cwd, dir)
+}
+
+func newFlagSet(site *ham.Site, name string) *flag.FlagSet {
 	fs := flag.NewFlagSet(name, flag.ExitOnError)
-	fs.Usage = func() { fmt.Println(s.Help()) }
+	fs.Usage = func() { fmt.Println(site.Help()) }
 	return fs
 }
