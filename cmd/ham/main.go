@@ -29,6 +29,7 @@ func main() {
 	serveCmd := newFlagSet(h, "serve")
 
 	bwd := buildCmd.String("w", "./", "working directory")
+	bod := buildCmd.String("o", ham.DefaultOutputDir, "output directory")
 
 	swd := serveCmd.String("w", "./", "working directory")
 	sport := serveCmd.String("p", "4120", "port")
@@ -60,7 +61,7 @@ func main() {
 			buildCmd.Usage()
 			return
 		}
-		checkError(h.Build(getWorkingDir(*bwd), ham.DefaultOutputDir))
+		checkError(h.Build(getWorkingDir(*bwd), *bod))
 	case "serve":
 		checkError(serveCmd.Parse(os.Args[2:]))
 		serve.Run(getWorkingDir(*swd), *sport)
