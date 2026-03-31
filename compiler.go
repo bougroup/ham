@@ -66,7 +66,7 @@ func (c *Compiler) compilePages(dir string) error {
 
 		srcFileName := filepath.Join(c.workingDir, dir, pageName)
 		pageDir := strings.Replace(dir, "src", "", 1)
-		pageFileName := filepath.Join(c.workingDir, "public", pageDir, pageName)
+		pageFileName := filepath.Join(c.workingDir, c.outputDir, pageDir, pageName)
 		file, err := os.Open(srcFileName)
 		if err != nil {
 			return err
