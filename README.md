@@ -16,6 +16,8 @@ HAM is a lightweight static site framework that lets you build websites using mo
 - [Commands](#commands)
 - [Project Structure](#project-structure)
 - [Reverse Proxy](#reverse-proxy)
+- [Contributing](#contributing)
+- [License](#license)
 
 ## Installation
 
@@ -327,3 +329,17 @@ src/
 Any request matching the API prefix is forwarded to your backend; everything else is served as a static file.
 
 Pages can require authentication by adding `data-ham-proxy="requires-authentication"` to the page element. The proxy checks for a valid session token (set via the `X-HAM-PROXY-TOKEN` header) before serving the page.
+
+## Contributing
+
+HAM is open source and contributions are welcome! Whether it's fixing a bug, improving documentation, or suggesting a new feature — we'd love to hear from you.
+
+- **Report bugs or request features** — [Open an issue](https://github.com/fobilow/ham/issues)
+- **Submit a pull request** — Fork the repo, make your changes, and open a PR
+- **Ask questions or share feedback** — Start a [discussion](https://github.com/fobilow/ham/discussions) or open an issue
+
+If you're new to open source, HAM is a great project to get started with. The codebase is small and approachable. Pick an issue, ask questions, and don't be afraid to submit a PR — even small improvements make a difference.
+
+## License
+
+HAM is released under the [MIT License](LICENSE).
