@@ -140,27 +140,27 @@ func (c *Compiler) compile(doc *html.Node, pageFilePath string) (*html.Node, boo
 		switch filepath.Ext(res) {
 		case ".css":
 			d := filepath.Base(filepath.Dir(pageFilePath))
-			p := []string{"/", "assets", "css"}
+			p := []string{"assets", "css"}
 			if d != srcDir {
-				p = append(p, d)
+				p = []string{"/", "assets", "css", d}
 			}
 			p = append(p, filepath.Base(res))
 			res = filepath.Join(p...)
 			pageCSS = append(pageCSS, `<link rel="stylesheet" href="`+res+`">`)
 		case ".js":
 			d := filepath.Base(filepath.Dir(pageFilePath))
-			p := []string{"/", "assets", "js"}
+			p := []string{"assets", "js"}
 			if d != srcDir {
-				p = append(p, d)
+				p = []string{"/", "assets", "js", d}
 			}
 			p = append(p, filepath.Base(res))
 			res = filepath.Join(p...)
 			pageJs = append(pageJs, `<script src="`+res+`"></script>`)
 		case ".ts":
 			d := filepath.Base(filepath.Dir(pageFilePath))
-			p := []string{"/", "assets", "js"}
+			p := []string{"assets", "js"}
 			if d != srcDir {
-				p = append(p, d)
+				p = []string{"/", "assets", "js", d}
 			}
 			p = append(p, filepath.Base(res))
 			res = filepath.Join(p...)
