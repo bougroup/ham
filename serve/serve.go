@@ -2,14 +2,17 @@ package serve
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/fobilow/ham"
@@ -49,8 +52,27 @@ func Run(workingDir, port string) {
 	router.GET("/__ham/events", s.handleSSE)
 	router.NoRoute(s.handleRequest)
 
+	srv := &http.Server{Addr: ":" + s.port, Handler: router}
+
+	// clean up output directory on shutdown
+	go func() {
+		sigCh := make(chan os.Signal, 1)
+		signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+		<-sigCh
+
+		log.Println("Shutting down, cleaning up output directory...")
+		outputDir := filepath.Join(s.workingDir, ham.DefaultOutputDir)
+		if err := os.RemoveAll(outputDir); err != nil {
+			log.Println("Failed to clean output directory:", err)
+		}
+
+		srv.Shutdown(context.Background())
+	}()
+
 	fmt.Printf("\n  HAM dev server running at http://localhost:%s\n\n", s.port)
-	log.Fatal(router.Run(":" + s.port))
+	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		log.Fatal(err)
+	}
 }
 
 func (s *devServer) build() error {
