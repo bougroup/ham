@@ -137,34 +137,22 @@ func (c *Compiler) compile(doc *html.Node, pageFilePath string) (*html.Node, boo
 			res = res[i:]
 		}
 
+		basePath := strings.Split(res, srcDir)[1]
+		root := ""
+		if len(strings.Split(basePath, "/")) > 1 {
+			root = "/"
+		}
+
 		switch filepath.Ext(res) {
 		case ".css":
-			d := filepath.Base(filepath.Dir(pageFilePath))
-			p := []string{"assets", "css"}
-			if d != srcDir {
-				p = []string{"/", "assets", "css", d}
-			}
-			p = append(p, filepath.Base(res))
-			res = filepath.Join(p...)
-			pageCSS = append(pageCSS, `<link rel="stylesheet" href="`+res+`">`)
+			assetPath := filepath.Join(root, "assets", "css", basePath)
+			pageCSS = append(pageCSS, `<link rel="stylesheet" href="`+assetPath+`">`)
 		case ".js":
-			d := filepath.Base(filepath.Dir(pageFilePath))
-			p := []string{"assets", "js"}
-			if d != srcDir {
-				p = []string{"/", "assets", "js", d}
-			}
-			p = append(p, filepath.Base(res))
-			res = filepath.Join(p...)
-			pageJs = append(pageJs, `<script src="`+res+`"></script>`)
+			assetPath := filepath.Join(root, "assets", "js", basePath)
+			pageJs = append(pageJs, `<script src="`+assetPath+`"></script>`)
 		case ".ts":
-			d := filepath.Base(filepath.Dir(pageFilePath))
-			p := []string{"assets", "js"}
-			if d != srcDir {
-				p = []string{"/", "assets", "js", d}
-			}
-			p = append(p, filepath.Base(res))
-			res = filepath.Join(p...)
-			res = strings.Replace(res, ".ts", ".js", 1)
+			assetPath := filepath.Join(root, "assets", "js", basePath)
+			assetPath = strings.Replace(assetPath, ".ts", ".js", 1)
 			pageJs = append(pageJs, `<script type="module" src="`+res+`"></script>`)
 		}
 	}
