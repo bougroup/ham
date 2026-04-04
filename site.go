@@ -40,8 +40,8 @@ const defaultPage = `<div class="page"
 const defaultTsConfig = `{
   "compilerOptions": {
     "target": "es2020",                                  /* Set the JavaScript language version for emitted JavaScript and include compatible library declarations. */
-    "module": "node16",                                /* Specify what module code is generated. */
-	"moduleResolution": "Node",
+    "module": "es2020",                                /* Specify what module code is generated. */
+	"moduleResolution": "bundler",
     "esModuleInterop": true,                             /* Emit additional JavaScript to ease support for importing CommonJS modules. This enables 'allowSyntheticDefaultImports' for type compatibility. */
     "forceConsistentCasingInFileNames": true,            /* Ensure that casing is correct in imports. */
     "strict": true,                                      /* Enable all strict type-checking options. */
@@ -66,14 +66,14 @@ const defaultPackageJSON = `{
 		"@rollup/plugin-node-resolve": "^15.2.3",
 		"rollup": "3.17.3",
 		"rollup-plugin-copy": "3.4.0",
-		"rollup-plugin-typescript2": "^0.36.0",
+		"@rollup/plugin-typescript": "^12.3.0",
 		"@rollup/plugin-commonjs": "^26.0.1",
 		"glob": "^11.0.0"
 	  }
 }`
 
 const defaultGitIgnore = `node_modules`
-const defaultRollupConfig = `import typescript from 'rollup-plugin-typescript2';
+const defaultRollupConfig = `import typescript from '@rollup/plugin-typescript';
 import { nodeResolve } from '@rollup/plugin-node-resolve';
 import copy from 'rollup-plugin-copy';
 import commonjs from '@rollup/plugin-commonjs';
@@ -92,9 +92,10 @@ export default {
     plugins: [
         copy({
             targets: [
-                {src: 'src/*.css', dest: 'public/assets/css'},
-                {src: 'src/*.js', dest: 'public/assets/js'}
-            ]
+                {src: 'src/**/*.css', dest: 'public/assets/css'},
+                {src: 'src/**/*.js', dest: 'public/assets/js'},
+            ],
+            flatten: false // preserves subdirectory structure
         }),
         typescript({
             tsconfig: './tsconfig.json'
