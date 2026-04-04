@@ -153,7 +153,7 @@ func (c *Compiler) compile(doc *html.Node, pageFilePath string) (*html.Node, boo
 		case ".ts":
 			assetPath := filepath.Join(root, "assets", "js", basePath)
 			assetPath = strings.Replace(assetPath, ".ts", ".js", 1)
-			pageJs = append(pageJs, `<script type="module" src="`+res+`"></script>`)
+			pageJs = append(pageJs, `<script type="module" src="`+assetPath+`"></script>`)
 		}
 	}
 
