@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"golang.org/x/net/html"
@@ -190,7 +191,8 @@ func (c *Compiler) compile(doc *html.Node, pageFilePath string) (*html.Node, boo
 		c.pageHTML = bytes.Replace(c.pageHTML, []byte("</body></html>"), []byte(""), 1)            // strip out </body></html>
 		c.pageHTML = bytes.Replace(c.layoutHTML, []byte("{ham:page}"), c.pageHTML, 1)
 		if page.Layout.ID != "" {
-			c.pageHTML = bytes.Replace(c.pageHTML, []byte("<body>"), []byte(`<body id="`+page.Layout.ID+`">`), 1)
+			bodyTagRe := regexp.MustCompile(`<body([^>]*)>`)
+			c.pageHTML = bodyTagRe.ReplaceAll(c.pageHTML, []byte(`<body$1 id="`+page.Layout.ID+`">`))
 		}
 
 		// find and replace layout embeds
