@@ -13,7 +13,7 @@ import (
 	"github.com/fobilow/ham/serve"
 )
 
-var Version string
+var Version = "1.0.0"
 
 var validSiteName = regexp.MustCompile(`\W+`)
 
