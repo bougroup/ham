@@ -133,7 +133,7 @@ func (c *Compiler) compile(doc *html.Node, pageFilePath string) (*html.Node, boo
 		if err := createFile(res, nil, false); err != nil {
 			log.Println("error writing css file", err.Error())
 		}
-		i := strings.Index(res, filepath.Clean("/assets")) // make path os portable
+		i := strings.Index(res, string(filepath.Separator)+"assets") // make path os portable
 		if i >= 0 {
 			res = res[i:]
 		}
@@ -146,13 +146,13 @@ func (c *Compiler) compile(doc *html.Node, pageFilePath string) (*html.Node, boo
 
 		switch filepath.Ext(res) {
 		case ".css":
-			assetPath := filepath.Join(root, "assets", "css", basePath)
+			assetPath := filepath.ToSlash(filepath.Join(root, "assets", "css", basePath))
 			pageCSS = append(pageCSS, `<link rel="stylesheet" href="`+assetPath+`">`)
 		case ".js":
-			assetPath := filepath.Join(root, "assets", "js", basePath)
+			assetPath := filepath.ToSlash(filepath.Join(root, "assets", "js", basePath))
 			pageJs = append(pageJs, `<script src="`+assetPath+`"></script>`)
 		case ".ts":
-			assetPath := filepath.Join(root, "assets", "js", basePath)
+			assetPath := filepath.ToSlash(filepath.Join(root, "assets", "js", basePath))
 			assetPath = strings.Replace(assetPath, ".ts", ".js", 1)
 			pageJs = append(pageJs, `<script type="module" src="`+assetPath+`"></script>`)
 		}
