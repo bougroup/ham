@@ -140,7 +140,7 @@ func (c *Compiler) compile(doc *html.Node, pageFilePath string) (*html.Node, boo
 
 		basePath := strings.Split(res, srcDir)[1]
 		root := ""
-		if len(strings.Split(basePath, "/")) > 1 {
+		if len(strings.Split(basePath, string(os.PathSeparator))) > 1 {
 			root = "/"
 		}
 
