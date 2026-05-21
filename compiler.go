@@ -12,6 +12,67 @@ import (
 	"golang.org/x/net/html"
 )
 
+// partialEmbedRe matches <embed type="ham/partial" src="X" .../> (attribute order-independent,
+// with or without trailing slash). This pre-parse substitution runs BEFORE html.Parse so the Go
+// HTML5 parser cannot relocate embed elements out of <head> into <body>.
+var partialEmbedRe = regexp.MustCompile(`(?i)<embed\s[^>]*type="ham/partial"[^>]*>`)
+
+// partialEmbedSrcRe extracts the src attribute value from a ham/partial embed tag.
+var partialEmbedSrcRe = regexp.MustCompile(`(?i)\bsrc="([^"]*)"`)
+
+// partialEmbedReplaceRe extracts the data-ham-replace attribute value from a ham/partial embed tag.
+var partialEmbedReplaceRe = regexp.MustCompile(`(?i)\bdata-ham-replace="([^"]*)"`)
+
+// partialEmbedComment encodes a ham/partial embed as an HTML comment so it survives html.Parse
+// without being hoisted. Format: <!--ham-embed:PATH;REPLACE--> where REPLACE may be empty.
+// The "ham-embed:" prefix makes accidental collision with user comments vanishingly unlikely.
+func partialEmbedComment(src, replace string) string {
+	return "<!--ham-embed:" + src + ";" + replace + "-->"
+}
+
+// partialEmbedCommentRe matches comment markers written by partialEmbedComment, capturing the
+// encoded payload (everything between "ham-embed:" and "-->").
+var partialEmbedCommentRe = regexp.MustCompile(`<!--ham-embed:(.*?)-->`)
+
+// rewritePartialEmbeds converts all <embed type="ham/partial" src="X"> tags to comment markers
+// so that html.Parse cannot relocate them. Returns the rewritten HTML and the extracted Embeds.
+func rewritePartialEmbeds(rawHTML []byte) ([]byte, []Embed) {
+	var embeds []Embed
+	result := partialEmbedRe.ReplaceAllFunc(rawHTML, func(match []byte) []byte {
+		srcMatch := partialEmbedSrcRe.FindSubmatch(match)
+		if srcMatch == nil {
+			return match // no src — leave as-is
+		}
+		src := string(srcMatch[1])
+		replace := ""
+		if repMatch := partialEmbedReplaceRe.FindSubmatch(match); repMatch != nil {
+			replace = string(repMatch[1])
+		}
+		embeds = append(embeds, Embed{Type: "ham/partial", Src: src, Replace: replace})
+		return []byte(partialEmbedComment(src, replace))
+	})
+	return result, embeds
+}
+
+// restorePartialEmbedPlaceholders converts comment markers back to {embed:X} tokens so that the
+// substitution loop can inject partial content at the correct position.
+func restorePartialEmbedPlaceholders(html []byte) []byte {
+	return partialEmbedCommentRe.ReplaceAllFunc(html, func(match []byte) []byte {
+		m := partialEmbedCommentRe.FindSubmatch(match)
+		if m == nil {
+			return match
+		}
+		payload := string(m[1])
+		// payload is "src;replace" — split on first ";" only
+		idx := strings.Index(payload, ";")
+		if idx < 0 {
+			return []byte(embedPlaceholder(payload))
+		}
+		src := payload[:idx]
+		return []byte(embedPlaceholder(src))
+	})
+}
+
 const parseLimit = 1000 // max number of times to iterate and find partials inside partials
 type Compiler struct {
 	workingDir string
@@ -174,6 +235,13 @@ func (c *Compiler) compile(doc *html.Node, pageFilePath string) (*html.Node, boo
 		log.Printf("Compiling Page: %s with %s\n", pageFilePath, layoutFilePath)
 
 		c.layoutHTML = readFile(layoutFilePath)
+
+		// Pre-parse: replace ALL <embed type="ham/partial" src="X"> tags with comment markers so
+		// the HTML5 parser cannot relocate them (e.g. from <head> to <body>). The rewrite captures
+		// src and data-ham-replace so we can synthesise Embed entries for the substitution loop.
+		var layoutEmbeds []Embed
+		c.layoutHTML, layoutEmbeds = rewritePartialEmbeds(c.layoutHTML)
+
 		lDoc, err := html.Parse(bytes.NewBuffer(c.layoutHTML))
 		if err != nil {
 			return nil, false, err
@@ -181,12 +249,18 @@ func (c *Compiler) compile(doc *html.Node, pageFilePath string) (*html.Node, boo
 
 		layout := ParseLayout(lDoc)
 		layout.Path = layoutFilePath
+
+		// Register partial embeds (extracted before html.Parse) so they get substituted below.
+		layout.Embeds = append(layout.Embeds, layoutEmbeds...)
+
 		buf.Reset()
 		if err := html.Render(buf, lDoc); err != nil {
 			return nil, false, err
 		}
 
-		c.layoutHTML = buf.Bytes()
+		// Post-render: convert comment markers back to {embed:X} tokens so the substitution
+		// loop below can inject partial content at the correct position.
+		c.layoutHTML = restorePartialEmbedPlaceholders(buf.Bytes())
 		c.pageHTML = bytes.Replace(c.pageHTML, []byte("<html><head></head><body>"), []byte(""), 1) // strip out <html><head></head><body>
 		c.pageHTML = bytes.Replace(c.pageHTML, []byte("</body></html>"), []byte(""), 1)            // strip out </body></html>
 		c.pageHTML = bytes.Replace(c.layoutHTML, []byte("{ham:page}"), c.pageHTML, 1)
@@ -214,7 +288,7 @@ func (c *Compiler) compile(doc *html.Node, pageFilePath string) (*html.Node, boo
 	c.pageHTML = bytes.ReplaceAll(c.pageHTML, []byte("{ham:css}"), []byte(strings.Join(pageCSS, "\n")))
 	c.pageHTML = bytes.ReplaceAll(c.pageHTML, []byte("{ham:js}"), []byte(strings.Join(pageJs, "\n")))
 
-	// find and replace page embeds
+	// find and replace page embeds (body-level partials collected by parsePage DOM walk)
 	for _, embed := range page.Embeds {
 		if embed.Src != "" {
 			embedFilePath := filepath.Join(filepath.Dir(pageFilePath), embed.Src)
@@ -229,12 +303,37 @@ func (c *Compiler) compile(doc *html.Node, pageFilePath string) (*html.Node, boo
 		}
 	}
 
+	// Pre-parse pass on the merged pageHTML before each re-parse: converts any ham/partial embed
+	// tags introduced by substituted content (e.g. partials-inside-partials) to comment markers so
+	// html.Parse cannot hoist them. Loop until no further embeds are introduced.
+	foundNested := false
+	for {
+		var nestedEmbeds []Embed
+		c.pageHTML, nestedEmbeds = rewritePartialEmbeds(c.pageHTML)
+		if len(nestedEmbeds) == 0 {
+			break
+		}
+		foundNested = true
+		c.pageHTML = restorePartialEmbedPlaceholders(c.pageHTML)
+		for _, embed := range nestedEmbeds {
+			if embed.Src != "" {
+				embedFilePath := filepath.Join(filepath.Dir(pageFilePath), embed.Src)
+				log.Println("embedding nested", embedFilePath)
+				embedContent := readFile(embedFilePath)
+				if embed.Replace != "" {
+					embedContent = c.handleEmbedReplacements(embedContent, embed.Replace)
+				}
+				c.pageHTML = bytes.ReplaceAll(c.pageHTML, []byte(embedPlaceholder(embed.Src)), embedContent)
+			}
+		}
+	}
+
 	doc, err := html.Parse(bytes.NewBuffer(c.pageHTML))
 	if err != nil {
 		return nil, false, err
 	}
 
-	return doc, len(page.Embeds) > 0, nil
+	return doc, len(page.Embeds) > 0 || foundNested, nil
 }
 
 func (c *Compiler) handleEmbedReplacements(content []byte, replacements string) []byte {

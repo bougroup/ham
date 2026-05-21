@@ -63,17 +63,19 @@ func parseLayout(start *html.Node, layout *Layout) {
 					em.Replace = attr.Val
 				}
 			}
-			layout.Embeds = append(layout.Embeds, em)
 			start.Type = 1
 			switch em.Type {
-			case "ham/partial":
-				start.Data = embedPlaceholder(em.Src)
 			case "ham/page":
+				layout.Embeds = append(layout.Embeds, em)
 				start.Data = "{ham:page}"
 			case "ham/layout-js":
+				layout.Embeds = append(layout.Embeds, em)
 				start.Data = "{ham:js}"
 			case "ham/layout-css":
+				layout.Embeds = append(layout.Embeds, em)
 				start.Data = "{ham:css}"
+				// ham/partial is handled by the pre-parse rewrite in compiler.go before html.Parse runs;
+				// by this point those embed tags are already comment markers and never reach this code.
 			}
 		}
 	}
@@ -116,7 +118,7 @@ func parsePage(start *html.Node, page *Page) {
 			start.Type = 1
 			switch em.Type {
 			case "ham/partial":
-				// replace <embed> tag with placeholders
+				// replace <embed> tag with placeholder; embed content is substituted later
 				start.Data = embedPlaceholder(em.Src)
 				page.Embeds = append(page.Embeds, em)
 			case "ham/page":
